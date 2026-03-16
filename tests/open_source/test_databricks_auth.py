@@ -28,39 +28,35 @@ def databricks_config(tmp_path: Path) -> Path:
     return config_file
 
 
-class TestGetHostTokenForProfile:
+def test_explicit_token_profile(
+    databricks_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(databricks_config))
 
-    def test_explicit_token_profile(
-        self,
-        databricks_config: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(databricks_config))
+    host, token = databricks_cli_utils.get_host_token_for_profile("explicit")
 
-        host, token = databricks_cli_utils.get_host_token_for_profile("explicit")
+    assert host == "https://explicit.azuredatabricks.net"
+    assert token == "dapi_explicit_token"
 
-        assert host == "https://explicit.azuredatabricks.net"
-        assert token == "dapi_explicit_token"
+@pytest.mark.parametrize(("profile", "expected_uri"), [
+    ("azure-cli", "databricks://azure-cli"),
+    (None, "databricks"),
+])
+def test_auth_type_profile(
+    databricks_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    profile: str | None,
+    expected_uri: str,
+) -> None:
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(databricks_config))
+    mock_creds = mock.Mock(spec=MlflowHostCreds, host="https://resolved.net", token="resolved_token")
 
-    @pytest.mark.parametrize(("profile", "expected_uri"), [
-        ("azure-cli", "databricks://azure-cli"),
-        (None, "databricks"),
-    ])
-    def test_auth_type_profile(
-        self,
-        databricks_config: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        profile: str | None,
-        expected_uri: str,
-    ) -> None:
-        monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(databricks_config))
-        mock_creds = mock.Mock(spec=MlflowHostCreds, host="https://resolved.net", token="resolved_token")
+    with mock.patch(
+        "mlflow_export_import.client.databricks_cli_utils.get_databricks_host_creds",
+        return_value=mock_creds,
+    ) as mock_fn:
+        host, token = databricks_cli_utils.get_host_token_for_profile(profile)
 
-        with mock.patch(
-            "mlflow_export_import.client.databricks_cli_utils.get_databricks_host_creds",
-            return_value=mock_creds,
-        ) as mock_fn:
-            host, token = databricks_cli_utils.get_host_token_for_profile(profile)
-
-        mock_fn.assert_called_once_with(expected_uri)
-        assert (host, token) == ("https://resolved.net", "resolved_token")
+    mock_fn.assert_called_once_with(expected_uri)
+    assert (host, token) == ("https://resolved.net", "resolved_token")
