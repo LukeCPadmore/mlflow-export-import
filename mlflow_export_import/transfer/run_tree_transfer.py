@@ -91,7 +91,9 @@ def _collect_with_root_tag(client, experiment_id, root_run_id):
 
 def _collect_with_parent_tag(client, root_run):
     experiment_id = root_run.info.experiment_id
-    runs = list(SearchRunsIterator(client, experiment_id, filter="tags.mlflow.parentRunId like '%'"))
+    # Azure MLflow does not support LIKE for tag filters; fetch runs and filter in Python.
+    runs = list(SearchRunsIterator(client, experiment_id))
+    runs = [run for run in runs if run.data.tags.get("mlflow.parentRunId")]
     by_id = {run.info.run_id: run for run in runs}
     children_by_parent = {}
     for run in runs:
