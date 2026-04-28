@@ -9,11 +9,42 @@ from mlflow.exceptions import RestException
 from mlflow_export_import.common.iterators import SearchModelVersionsIterator
 from mlflow_export_import.common.timestamp_utils import fmt_ts_millis, adjust_timestamps
 from mlflow_export_import.common import utils
+from mlflow_export_import.common import MlflowExportImportException
 from mlflow_export_import.common import filesystem as _filesystem
 from mlflow_export_import.common import ws_permissions_utils, uc_permissions_utils
 from mlflow_export_import.client.client_utils import create_http_client, create_dbx_client
+from mlflow_export_import.client.mlflow_auth_utils import resolve_mlflow_tracking_endpoint
+from mlflow_export_import.client.provider import TrackingProvider
 
 _logger = utils.getLogger(__name__)
+
+
+def _get_registered_model_payload(payload, mlflow_client):
+    model = payload.get("registered_model")
+    if model:
+        return model
+    tracking_uri = getattr(mlflow_client, "tracking_uri", None)
+    endpoint = resolve_mlflow_tracking_endpoint(tracking_uri)
+    if endpoint.provider == TrackingProvider.AZUREML:
+        return payload.get("registeredModel")
+    return None
+
+
+def _registered_model_entity_to_dict(model):
+    aliases_list = [{"version": v, "alias": a} for a, v in model.aliases.items()] if model.aliases else []
+    latest_versions = getattr(model, "latest_versions", None)
+    if latest_versions is None:
+        latest_versions = getattr(model, "_latest_version", [])
+    latest_versions = [model_version_to_dict(v) for v in latest_versions]
+    return {
+        "name": model.name,
+        "creation_timestamp": model.creation_timestamp,
+        "last_updated_timestamp": model.last_updated_timestamp,
+        "description": model.description,
+        "tags": model.tags,
+        "aliases": aliases_list,
+        "latest_versions": latest_versions,
+    }
 
 
 def is_unity_catalog_model(name):
@@ -183,18 +214,13 @@ def get_registered_model(mlflow_client, model_name, get_permissions=False):
     """
     Get registered model and optionally its permissions.
     """
-    # Use native client for SageMaker MLflow
-    if _is_sagemaker(mlflow_client):
-        model = mlflow_client.get_registered_model(model_name)
-        aliases_list = [{"version": v, "alias": a} for a, v in model.aliases.items()] if model.aliases else []
-        return {
-            "name": model.name,
-            "creation_timestamp": model.creation_timestamp,
-            "last_updated_timestamp": model.last_updated_timestamp,
-            "description": model.description,
-            "tags": model.tags,
-            "aliases": aliases_list,
-        }
+    endpoint = resolve_mlflow_tracking_endpoint(getattr(mlflow_client, "tracking_uri", None))
+    # Use native client for providers whose REST payload shape is inconsistent.
+    if _is_sagemaker(mlflow_client) or endpoint.provider == TrackingProvider.AZUREML:
+        model = _registered_model_entity_to_dict(mlflow_client.get_registered_model(model_name))
+        permissions = None
+        adjust_timestamps(model, ["creation_timestamp", "last_updated_timestamp"])
+        return model
 
     http_client = create_http_client(mlflow_client, model_name)
     if get_permissions and utils.calling_databricks():
@@ -210,7 +236,12 @@ def get_registered_model(mlflow_client, model_name, get_permissions=False):
             _model["registered_model"] = model
     else:
         _model = http_client.get("registered-models/get", {"name": model_name})
-        model = _model["registered_model"]
+        model = _get_registered_model_payload(_model, mlflow_client)
+        if not model:
+            raise MlflowExportImportException(
+                f"Missing registered model in response for '{model_name}': {_model}",
+                http_status_code=500
+            )
         permissions = None
     adjust_timestamps(model, ["creation_timestamp", "last_updated_timestamp"])
     if permissions:

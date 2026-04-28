@@ -19,6 +19,8 @@ from mlflow_export_import.common import filesystem as _fs
 from mlflow_export_import.common import io_utils
 from mlflow_export_import.common.timestamp_utils import adjust_timestamps, format_seconds
 from mlflow_export_import.client.client_utils import create_mlflow_client, create_dbx_client
+from mlflow_export_import.client.mlflow_auth_utils import resolve_mlflow_tracking_endpoint
+from mlflow_export_import.client.capabilities import get_provider_capabilities
 from mlflow_export_import.notebook.download_notebook import download_notebook
 from mlflow_export_import.logged_model.export_logged_model import export_logged_model
 
@@ -51,6 +53,8 @@ def export_run(
 
     mlflow_client = mlflow_client or create_mlflow_client()
     dbx_client = create_dbx_client(mlflow_client)
+    endpoint = resolve_mlflow_tracking_endpoint(getattr(mlflow_client, "tracking_uri", None))
+    provider_caps = get_provider_capabilities(endpoint.provider)
 
     if notebook_formats is None:
         notebook_formats = []
@@ -116,10 +120,17 @@ def export_run(
         else:
             if len(artifacts) > 0: # Because of https://github.com/mlflow/mlflow/issues/2839
                 fs.mkdirs(dst_path)
-                mlflow.artifacts.download_artifacts(
-                    run_id = run.info.run_id,
-                    dst_path = _fs.mk_local_path(dst_path),
-                    tracking_uri = mlflow_client._tracking_client.tracking_uri)
+                try:
+                    mlflow.artifacts.download_artifacts(
+                        run_id = run.info.run_id,
+                        dst_path = _fs.mk_local_path(dst_path),
+                        tracking_uri = mlflow_client._tracking_client.tracking_uri)
+                except Exception as e:
+                    if provider_caps.supports_artifact_download_strict:
+                        raise
+                    _logger.warning(
+                        f"Skipping some run artifacts for run '{run.info.run_id}' on provider '{endpoint.provider.value}': {e}"
+                    )
         notebook = tags.get(MLFLOW_DATABRICKS_NOTEBOOK_PATH)
 
         # export notebook as artifact
