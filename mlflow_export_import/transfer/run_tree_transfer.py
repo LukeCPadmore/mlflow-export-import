@@ -3,6 +3,7 @@ import tempfile
 
 from mlflow_export_import.common import utils
 from mlflow_export_import.common.iterators import SearchRunsIterator
+from mlflow_export_import.common.source_tags import ExportTags
 from mlflow_export_import.client.mlflow_auth_utils import resolve_mlflow_tracking_endpoint
 from mlflow_export_import.client.provider import TrackingProvider
 from mlflow_export_import.run.export_run import export_run
@@ -28,7 +29,7 @@ def collect_run_tree(src_client, root_run_id):
     return _collect_with_parent_tag(src_client, root_run)
 
 
-def transfer_run_tree(src_client, dst_client, root_run_id, dst_experiment_name):
+def transfer_run_tree(src_client, dst_client, root_run_id, dst_experiment_name, import_source_tags=False):
     src_runs = collect_run_tree(src_client, root_run_id)
     run_ids_map = {}
     failed_run_ids = []
@@ -51,8 +52,20 @@ def transfer_run_tree(src_client, dst_client, root_run_id, dst_experiment_name):
                 dst_run, src_parent_run_id = import_run(
                     input_dir=run_dir,
                     experiment_name=dst_experiment_name,
+                    import_source_tags=import_source_tags,
                     mlflow_client=dst_client
                 )
+                if import_source_tags:
+                    dst_client.set_tag(
+                        dst_run.info.run_id,
+                        f"{ExportTags.PREFIX_ROOT}.src_tracking_uri",
+                        str(getattr(src_client, "tracking_uri", "")),
+                    )
+                    dst_client.set_tag(
+                        dst_run.info.run_id,
+                        f"{ExportTags.PREFIX_ROOT}.dst_tracking_uri",
+                        str(getattr(dst_client, "tracking_uri", "")),
+                    )
                 if src_run_id == root_run_id:
                     root_dst_run = dst_run
                 run_ids_map[src_run_id] = {

@@ -36,7 +36,9 @@ def copy(
 def _copy(src_run_id, dst_experiment_name, src_client=None, dst_client=None):
     src_client = src_client or mlflow.MlflowClient()
     dst_client = dst_client or mlflow.MlflowClient()
-    dst_run, _, failed_run_ids = transfer_run_tree(src_client, dst_client, src_run_id, dst_experiment_name)
+    dst_run, _, failed_run_ids = transfer_run_tree(
+        src_client, dst_client, src_run_id, dst_experiment_name, import_source_tags=True
+    )
     if not dst_run:
         raise Exception(f"Root run '{src_run_id}' could not be copied.")
     if failed_run_ids:
