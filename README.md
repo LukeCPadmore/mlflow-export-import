@@ -245,36 +245,6 @@ or:
 python -u -m mlflow_export_import.experiment.export_experiment --help
 ```
 
-### Terminal CLI quickstart (Databricks/AzureML)
-
-The SageMaker section above is conceptual migration guidance.
-This section is execution-focused for terminal usage against Databricks or AzureML tracking URIs.
-
-Use the runner script [scripts/console_scripts_terminal.sh](scripts/console_scripts_terminal.sh) to validate and run core single/bulk console scripts.
-
-```
-# Show all core command help for Databricks target
-bash scripts/console_scripts_terminal.sh \
-  --target databricks \
-  --mode all \
-  --help-only
-
-# Show all core command help for AzureML target
-bash scripts/console_scripts_terminal.sh \
-  --target azureml \
-  --mode all \
-  --help-only
-
-# Print runnable command templates for AzureML single-object flows
-bash scripts/console_scripts_terminal.sh \
-  --target azureml \
-  --mode single
-```
-
-Tracking URI/auth expectations:
-* Databricks target: `MLFLOW_TRACKING_URI=databricks` or `databricks://<PROFILE>`, or `DATABRICKS_HOST` + `DATABRICKS_TOKEN`.
-* AzureML target: set `MLFLOW_TRACKING_URI` to your AML tracking URI. The script checks for `AZURE_*` auth env vars as informational only.
-
 ## Logging
 
 Standard Python logging is used.
