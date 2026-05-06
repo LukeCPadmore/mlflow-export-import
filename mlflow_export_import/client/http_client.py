@@ -81,8 +81,8 @@ class HttpClient(BaseHttpClient):
         :param token: Databricks token if using Databricks.
         """
         if host:
-            # Assume 'host' is a Databricks profile
-            if not host.startswith("http"):
+            # Assume non-http host is a Databricks profile.
+            if not host.startswith("http://") and not host.startswith("https://"):
                 profile = host.replace("databricks://","")
                 (host, token) = databricks_cli_utils.get_host_token_for_profile(profile)
         else:
@@ -94,7 +94,7 @@ class HttpClient(BaseHttpClient):
                 http_status_code=401
             )
         self.host = host
-        self.api_uri = os.path.join(host, api_name)
+        self.api_uri = host.rstrip("/") if not api_name else os.path.join(host, api_name)
         self.token = token
 
 
@@ -234,10 +234,25 @@ class MlflowHttpClient(HttpClient):
         super().__init__("api/2.0/mlflow", host, token)
 
 
+class AzureHttpClient(HttpClient):
+    """
+    Azure MLflow API client: api/2.0/mlflow
+    """
+    def __init__(self, host=None, token=None):
+        super().__init__("api/2.0/mlflow", host, token)
+
+
+_API_TO_CLIENT_CLS = {
+    "mlflow": MlflowHttpClient,
+    "databricks": DatabricksHttpClient,
+    "azureml": AzureHttpClient,
+}
+
+
 @click.command()
 @click.option("--api",
-    help="API: mlflow|databricks.",
-    type=str,
+    help="API: mlflow|databricks|azureml.",
+    type=click.Choice(["mlflow", "databricks", "azureml"], case_sensitive=False),
     default="mlflow",
 )
 @click.option("--resource",
@@ -287,7 +302,8 @@ def main(api, resource, method, params, data, output_file):
         else:
             return params
 
-    client = DatabricksHttpClient() if api == "databricks" else MlflowHttpClient()
+    api = api.lower()
+    client = _API_TO_CLIENT_CLS.get(api, MlflowHttpClient)()
     method = method.upper()
 
     if "GET" == method:
@@ -302,6 +318,9 @@ def main(api, resource, method, params, data, output_file):
     elif "PATCH" == method:
         data = _get_params(data)
         rsp = client._patch(resource, _get_params(data))
+        _write_output(rsp, output_file)
+    elif "DELETE" == method:
+        rsp = client._delete(resource)
         _write_output(rsp, output_file)
     else:
         print(f"ERROR: Unsupported HTTP method '{method}'")

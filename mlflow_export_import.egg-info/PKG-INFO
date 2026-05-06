@@ -1,3 +1,46 @@
+Metadata-Version: 2.4
+Name: mlflow_export_import
+Version: 1.2.0
+Summary: Copy MLflow objects (experiments, runs or registered models) to another tracking server
+Home-page: https://github.com/mlflow/mlflow-export-import
+Author: Andre Mesarovic
+License: Apache License 2.0
+Project-URL: Bug Tracker, https://github.com/mlflow/mlflow-export-import/issues
+Project-URL: Documentation, https://github.com/mlflow/mlflow-export-import/blob/master/README.md
+Project-URL: Source Code, https://github.com/mlflow/mlflow-export-import/
+Keywords: mlflow ml ai
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: mlflow-skinny[databricks]
+Requires-Dist: azureml-mlflow
+Requires-Dist: databricks-cli==0.18.0
+Requires-Dist: packaging>=20.0
+Requires-Dist: pandas>=1.5.2
+Requires-Dist: tabulate==0.9.0
+Requires-Dist: wheel
+Provides-Extra: tests
+Requires-Dist: mlflow[databricks]>=2.9.2; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-html>=3.2.0; extra == "tests"
+Requires-Dist: shortuuid>=1.0.11; extra == "tests"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
 # MLflow Export Import
 
 The MLflow Export Import package provides tools to copy MLflow objects (runs, experiments or registered models) from one MLflow tracking server (Databricks workspace) to another.

@@ -24,6 +24,8 @@ from mlflow_export_import.common import ws_permissions_utils
 from mlflow_export_import.common.timestamp_utils import fmt_ts_millis, utc_str_to_millis
 from mlflow_export_import.common.version_utils import has_trace_support, has_logged_model_support
 from mlflow_export_import.client.client_utils import create_mlflow_client, create_dbx_client
+from mlflow_export_import.client.mlflow_auth_utils import resolve_mlflow_tracking_endpoint
+from mlflow_export_import.client.capabilities import get_provider_capabilities
 from mlflow_export_import.run.export_run import export_run
 from mlflow_export_import.bulk import (
     export_logged_models,
@@ -64,6 +66,8 @@ def export_experiment(
     """
     mlflow_client = mlflow_client or create_mlflow_client()
     dbx_client = create_dbx_client(mlflow_client)
+    endpoint = resolve_mlflow_tracking_endpoint(getattr(mlflow_client, "tracking_uri", None))
+    provider_caps = get_provider_capabilities(endpoint.provider)
 
     run_start_time_str = run_start_time
     runs_until_str = runs_until
@@ -122,26 +126,36 @@ def export_experiment(
 
     # Export Logged Models
     if has_logged_model_support():
-        ok_logged_models, failed_logged_models = export_logged_models.export_logged_models(
-            experiment_ids = [exp.experiment_id],
-            output_dir = os.path.join(output_dir, "logged_models"),
-            logged_models_filter = logged_models_filter,
-            mlflow_client = mlflow_client,
-        )
-        info_attr["ok_logged_models"] = len(ok_logged_models)
-        info_attr["failed_logged_models"] = len(failed_logged_models)
-        mlflow_attr["logged_models"] = ok_logged_models
+        if provider_caps.supports_logged_models_api:
+            ok_logged_models, failed_logged_models = export_logged_models.export_logged_models(
+                experiment_ids = [exp.experiment_id],
+                output_dir = os.path.join(output_dir, "logged_models"),
+                logged_models_filter = logged_models_filter,
+                mlflow_client = mlflow_client,
+            )
+            info_attr["ok_logged_models"] = len(ok_logged_models)
+            info_attr["failed_logged_models"] = len(failed_logged_models)
+            mlflow_attr["logged_models"] = ok_logged_models
+        else:
+            _logger.warning(f"Skipping logged model export for provider '{endpoint.provider.value}': unsupported operation.")
+            info_attr["skipped_logged_models"] = True
+            mlflow_attr["logged_models"] = []
 
     # Export traces
     if has_trace_support():
-        ok_traces, failed_traces = export_traces.export_traces(
-            experiment_ids=[exp.experiment_id],
-            output_dir=os.path.join(output_dir, "traces"),
-            mlflow_client=mlflow_client,
-        )
-        info_attr["ok_traces"] = len(ok_traces)
-        info_attr["failed_traces"] = len(failed_traces)
-        mlflow_attr["traces"] = ok_traces
+        if provider_caps.supports_traces_api:
+            ok_traces, failed_traces = export_traces.export_traces(
+                experiment_ids=[exp.experiment_id],
+                output_dir=os.path.join(output_dir, "traces"),
+                mlflow_client=mlflow_client,
+            )
+            info_attr["ok_traces"] = len(ok_traces)
+            info_attr["failed_traces"] = len(failed_traces)
+            mlflow_attr["traces"] = ok_traces
+        else:
+            _logger.warning(f"Skipping trace export for provider '{endpoint.provider.value}': unsupported operation.")
+            info_attr["skipped_traces"] = True
+            mlflow_attr["traces"] = []
 
     if export_permissions:
         mlflow_attr["permissions"] = ws_permissions_utils.get_experiment_permissions(dbx_client, exp.experiment_id)

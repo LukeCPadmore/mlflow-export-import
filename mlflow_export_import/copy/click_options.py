@@ -86,7 +86,7 @@ def opt_copy_lineage_tags(function):
     function = click.option("--copy-lineage-tags",
         help="Add source lineage info to destination version as tags starting with 'mlflow_exim'.",
         type=bool,
-        default=False,
+        default=True,
         show_default=True
     )(function)
     return function

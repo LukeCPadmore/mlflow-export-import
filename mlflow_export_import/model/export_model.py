@@ -128,6 +128,16 @@ def _export_versions(mlflow_client, model_dct, versions, output_dir, opts):
             continue
         if len(opts.versions) > 0 and not vr.version in opts.versions:
             continue
+        if not vr.run_id:
+            msg = {
+                "name": vr.name,
+                "version": vr.version,
+                "stage": vr.current_stage,
+                "reason": "missing run_id",
+            }
+            _logger.warning(f"Skipping model version with missing run_id: {msg}")
+            failed_versions.append({"version": model_utils.model_version_to_dict(vr), "reason": "missing run_id"})
+            continue
         _export_version(mlflow_client, vr, output_dir, version_aliases.get(vr.version,[]), output_versions, failed_versions, j, len(versions), opts)
     output_versions.sort(key=lambda x: x["version"], reverse=False)
     return output_versions, failed_versions

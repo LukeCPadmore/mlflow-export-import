@@ -3,10 +3,10 @@ Lists all registered models.
 """
 
 import json
-from mlflow_export_import.client.http_client import MlflowHttpClient
+from mlflow_export_import.client.client_utils import create_http_client, create_mlflow_client
 
 def main():
-    client = MlflowHttpClient()
+    client = create_http_client(create_mlflow_client())
     print("HTTP client:",client)
     rsp = client._get("registered-models/search")
     dct = json.loads(rsp.text)

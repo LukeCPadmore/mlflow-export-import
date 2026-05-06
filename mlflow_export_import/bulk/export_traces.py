@@ -16,6 +16,8 @@ from mlflow_export_import.bulk.bulk_utils import get_experiment_ids, get_traces
 from mlflow_export_import.common import utils, mlflow_utils, io_utils
 from mlflow_export_import.trace.export_trace import export_trace
 from mlflow_export_import.common.version_utils import has_trace_support
+from mlflow_export_import.client.mlflow_auth_utils import resolve_mlflow_tracking_endpoint
+from mlflow_export_import.client.capabilities import get_provider_capabilities
 
 _logger = utils.getLogger(__name__)
 
@@ -37,7 +39,13 @@ def export_traces(
         _logger.warning(f"Traces are not supported in this MLflow version {mlflow.__version__} (requires 2.14+).")
         return {"unsupported": True, "mlflow_version": mlflow.__version__}
 
+    endpoint = resolve_mlflow_tracking_endpoint()
     mlflow_client = mlflow_client or mlflow.MlflowClient()
+    endpoint = resolve_mlflow_tracking_endpoint(getattr(mlflow_client, "tracking_uri", None))
+    provider_caps = get_provider_capabilities(endpoint.provider)
+    if not provider_caps.supports_traces_api:
+        _logger.warning(f"Skipping trace export for provider '{endpoint.provider.value}': unsupported operation.")
+        return {"unsupported": True, "provider": endpoint.provider.value}
     if isinstance(experiment_ids, str):
         experiment_ids = get_experiment_ids(mlflow_client, experiment_ids)
 

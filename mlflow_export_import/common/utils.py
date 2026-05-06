@@ -104,11 +104,19 @@ def nested_tags(dst_client, run_ids_mapping):
     """
     Set the new parentRunId for new imported child runs.
     """
+    logger = getLogger(__name__)
     for _,v in run_ids_mapping.items():
         src_parent_run_id = v.get("src_parent_run_id",None)
         if src_parent_run_id:
             dst_run_id = v["dst_run_id"]
-            dst_parent_run_id = run_ids_mapping[src_parent_run_id]["dst_run_id"]
+            parent_mapping = run_ids_mapping.get(src_parent_run_id)
+            if not parent_mapping:
+                logger.warning(
+                    f"Cannot set nested parent tag for destination run '{dst_run_id}': "
+                    f"source parent run '{src_parent_run_id}' is missing from transferred run mapping."
+                )
+                continue
+            dst_parent_run_id = parent_mapping["dst_run_id"]
             dst_client.set_tag(dst_run_id, "mlflow.parentRunId", dst_parent_run_id)
 
 

@@ -2,6 +2,7 @@ from setuptools import setup, find_packages
 
 CORE_REQUIREMENTS = [
     "mlflow-skinny[databricks]",
+    "azureml-mlflow",
     "databricks-cli==0.18.0",
     "packaging>=20.0",        # For version parsing and compatibility
     "pandas>=1.5.2",
@@ -60,6 +61,9 @@ setup(
             "download-notebook = mlflow_export_import.notebook.download_notebook:main",
             "copy-model-version = mlflow_export_import.copy.copy_model_version:main",
             "copy-run = mlflow_export_import.copy.copy_run:main",
+            "transfer-run = mlflow_export_import.transfer.transfer_run:main",
+            "transfer-experiment = mlflow_export_import.transfer.transfer_experiment:main",
+            "transfer-model = mlflow_export_import.transfer.transfer_model:main",
             "get-model-signature = mlflow_export_import.tools.get_model_signature:main",
             "set-model-signature = mlflow_export_import.tools.set_model_signature:main",
             "list-model-versions-without-signatures = mlflow_export_import.tools.list_model_versions_without_signatures:main",

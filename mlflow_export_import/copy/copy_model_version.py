@@ -34,7 +34,7 @@ def copy(
         dst_registry_uri = None,
         copy_permissions = False,
         copy_stages_and_aliases = False,
-        copy_lineage_tags = False,
+        copy_lineage_tags = True,
         verbose = False
     ):
     """
@@ -107,7 +107,7 @@ def _create_registered_model(src_client, src_model_name, dst_client, dst_model_n
 
 
 def _copy_model_version(src_version, dst_model_name, dst_experiment_name, src_client, dst_client, \
-        copy_stages_and_aliases=False, copy_lineage_tags=False):
+        copy_stages_and_aliases=False, copy_lineage_tags=True):
     if dst_experiment_name:
         dst_run = copy_run._copy(src_version.run_id, dst_experiment_name, src_client, dst_client)
     else:
