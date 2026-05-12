@@ -55,6 +55,8 @@ def set_dst_user_id(tags, user_id, use_src_user_id):
         return
     from mlflow.entities import RunTag
     from mlflow.utils.mlflow_tags import MLFLOW_USER
+    if any(getattr(tag, "key", None) == MLFLOW_USER for tag in tags):
+        return
     user_id = user_id if use_src_user_id else get_user_id()
     tags.append(RunTag(MLFLOW_USER,user_id ))
 
