@@ -1,5 +1,6 @@
 import tempfile
 import click
+import mlflow
 
 from mlflow_export_import.common import utils
 from mlflow_export_import.copy import copy_utils
@@ -17,22 +18,29 @@ def transfer_experiment(
     ):
     src_client = copy_utils.mk_client(src_tracking_uri)
     dst_client = copy_utils.mk_client(dst_tracking_uri)
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        export_experiment(
-            experiment_id_or_name=experiment,
-            output_dir=tmp_dir,
-            mlflow_client=src_client
-        )
-        run_info_map = import_experiment(
-            experiment_name=dst_experiment_name,
-            input_dir=tmp_dir,
-            mlflow_client=dst_client
-        )
-        _logger.info(
-            f"Transferred experiment '{experiment}' into destination experiment '{dst_experiment_name}' "
-            f"with {len(run_info_map)} imported runs."
-        )
-        return run_info_map
+
+    original_tracking_uri = mlflow.get_tracking_uri()
+    try:
+        mlflow.set_tracking_uri(src_tracking_uri)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            export_experiment(
+                experiment_id_or_name=experiment,
+                output_dir=tmp_dir,
+                mlflow_client=src_client
+            )
+            mlflow.set_tracking_uri(dst_tracking_uri)
+            run_info_map = import_experiment(
+                experiment_name=dst_experiment_name,
+                input_dir=tmp_dir,
+                mlflow_client=dst_client
+            )
+            _logger.info(
+                f"Transferred experiment '{experiment}' into destination experiment '{dst_experiment_name}' "
+                f"with {len(run_info_map)} imported runs."
+            )
+            return run_info_map
+    finally:
+        mlflow.set_tracking_uri(original_tracking_uri)
 
 
 @click.command()
