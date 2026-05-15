@@ -87,7 +87,8 @@ def import_model_version(
             model_utils.update_model_permissions(mlflow_client, dbx_client, model_name, perms)
 
     model_path = _get_model_path(src_vr)
-    dst_source = f"{dst_run.info.artifact_uri}/{model_path}"
+    # Prefer runs:/ source for cross-backend compatibility (e.g. Azure MLflow)
+    dst_source = f"runs:/{dst_run.info.run_id}/{model_path}"
     dst_vr = _import_model_version(
         mlflow_client,
         model_name = model_name,
@@ -111,8 +112,20 @@ def _import_model_version(
     ):
     start_time = time.time()
     dst_source = dst_source.replace("file://","") # OSS MLflow
-    if not (dst_source.startswith("dbfs:") or dst_source.startswith("s3:")) and not os.path.exists(dst_source):
-        raise MlflowExportImportException(f"'source' argument for MLflowClient.create_model_version does not exist: {dst_source}", http_status_code=404)
+    remote_prefixes = (
+        "dbfs:",
+        "s3:",
+        "runs:/",
+        "mlflow-artifacts:/",
+        "wasbs://",
+        "abfss://",
+        "gs://",
+    )
+    if not dst_source.startswith(remote_prefixes) and not os.path.exists(dst_source):
+        raise MlflowExportImportException(
+            f"'source' argument for MLflowClient.create_model_version does not exist: {dst_source}",
+            http_status_code=404,
+        )
 
     tags = src_vr["tags"]
     if import_source_tags:
